@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Orbit</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --navy-deep:#0F1720;
+    --navy:#141F2B;
+    --ring:#2E3947;
+    --ring-soft:#212C38;
+    --brass:#C7973A;
+    --brass-bright:#E3B968;
+    --parchment:#EDE6D6;
+    --parchment-dim:#9CA6B3;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; }
+  body{
+    background:
+      radial-gradient(ellipse at 50% 30%, #1A2733 0%, var(--navy-deep) 60%, #0A1017 100%);
+    color:var(--parchment);
+    font-family:'Inter', sans-serif;
+    min-height:100vh;
+    overflow-x:hidden;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  /* faint starfield texture */
+  body::before{
+    content:"";
+    position:fixed;
+    inset:0;
+    background-image:
+      radial-gradient(1px 1px at 20% 30%, rgba(237,230,214,0.25) 50%, transparent 51%),
+      radial-gradient(1px 1px at 70% 15%, rgba(237,230,214,0.18) 50%, transparent 51%),
+      radial-gradient(1px 1px at 85% 60%, rgba(237,230,214,0.22) 50%, transparent 51%),
+      radial-gradient(1px 1px at 12% 75%, rgba(237,230,214,0.15) 50%, transparent 51%),
+      radial-gradient(1px 1px at 45% 88%, rgba(237,230,214,0.2) 50%, transparent 51%),
+      radial-gradient(1px 1px at 60% 45%, rgba(237,230,214,0.12) 50%, transparent 51%);
+    pointer-events:none;
+    z-index:0;
+  }
+
+  .page{
+    position:relative;
+    z-index:1;
+    max-width:1100px;
+    margin:0 auto;
+    padding:64px 24px 80px;
+    text-align:center;
+  }
+
+  .eyebrow{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    letter-spacing:0.28em;
+    text-transform:uppercase;
+    color:var(--brass);
+    margin-bottom:18px;
+  }
+  h1{
+    font-family:'Cormorant Garamond', serif;
+    font-weight:600;
+    font-size:clamp(34px,6vw,58px);
+    letter-spacing:0.01em;
+    margin:0 0 14px;
+    color:var(--parchment);
+  }
+  h1 em{
+    font-style:italic;
+    color:var(--brass-bright);
+  }
+  .sub{
+    font-size:15px;
+    color:var(--parchment-dim);
+    max-width:460px;
+    margin:0 auto;
+    line-height:1.65;
+  }
+
+  /* ---------------- ORRERY ---------------- */
+  .orrery-wrap{
+    margin:56px auto 20px;
+    width:min(78vmin, 640px);
+    height:min(78vmin, 640px);
+    position:relative;
+  }
+
+  .dial-ring{
+    position:absolute;
+    inset:0;
+    border-radius:50%;
+    border:1px solid var(--ring-soft);
+  }
+  .dial-ring.outer{ inset:0; }
+  .dial-ring.mid{ inset:9%; border-color:var(--ring); }
+  .dial-ring.inner{ inset:38%; border:1px solid var(--ring-soft); }
+
+  /* tick marks on the outer dial */
+  .ticks{
+    position:absolute;
+    inset:0;
+  }
+  .tick{
+    position:absolute;
+    top:50%; left:50%;
+    width:1px; height:9px;
+    background:var(--ring);
+    transform-origin:50% 0;
+  }
+  .tick.major{
+    height:14px;
+    background:var(--brass);
+    opacity:0.55;
+    width:1.5px;
+  }
+
+  /* center hub */
+  .hub{
+    position:absolute;
+    top:50%; left:50%;
+    width:22%; height:22%;
+    transform:translate(-50%,-50%);
+    border-radius:50%;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    z-index:3;
+  }
+  .hub-face{
+    width:100%; height:100%;
+    border-radius:50%;
+    background:radial-gradient(circle at 38% 32%, #223244 0%, #131C26 70%);
+    border:1px solid var(--brass);
+    box-shadow:0 0 0 1px rgba(199,151,58,0.15), 0 0 40px rgba(199,151,58,0.08), inset 0 0 30px rgba(0,0,0,0.5);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    position:relative;
+  }
+  .hub-glyph{
+    width:46%; height:46%;
+    animation:spin 90s linear infinite;
+  }
+  .hub-glyph path, .hub-glyph circle{
+    stroke:var(--brass);
+    fill:none;
+    stroke-width:1;
+  }
+  .hub-label{
+    position:absolute;
+    top:50%; left:50%;
+    transform:translate(-50%,-50%);
+    font-family:'IBM Plex Mono', monospace;
+    font-size:clamp(9px, 1.6vmin, 12px);
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    color:var(--parchment-dim);
+    text-align:center;
+    line-height:1.5;
+    pointer-events:none;
+  }
+
+  /* rotating ring holding company nodes */
+  .orbit{
+    position:absolute;
+    inset:0;
+    animation:spin var(--orbit-duration, 70s) linear infinite;
+  }
+  .orrery-wrap.paused .orbit{ animation-play-state:paused; }
+
+  .node{
+    position:absolute;
+    top:50%; left:50%;
+    width:0; height:0;
+  }
+  .node-inner{
+    position:absolute;
+    animation:spin-reverse var(--orbit-duration, 70s) linear infinite;
+  }
+  .orrery-wrap.paused .node-inner{ animation-play-state:paused; }
+
+  .node-btn{
+    all:unset;
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    cursor:pointer;
+    padding:6px 12px;
+    border-radius:999px;
+    border:1px solid transparent;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:clamp(10px, 1.5vmin, 12.5px);
+    letter-spacing:0.03em;
+    color:var(--parchment);
+    background:rgba(20,31,43,0.55);
+    backdrop-filter:blur(2px);
+    white-space:nowrap;
+    transition:border-color .2s ease, color .2s ease, background .2s ease, transform .15s ease;
+  }
+  .node-btn::before{
+    content:"";
+    width:5px; height:5px;
+    border-radius:50%;
+    background:var(--brass);
+    opacity:0.7;
+    flex-shrink:0;
+    transition:box-shadow .2s ease, opacity .2s ease;
+  }
+  .node-btn:hover, .node-btn:focus-visible{
+    color:var(--navy-deep);
+    background:var(--brass-bright);
+    border-color:var(--brass-bright);
+    transform:scale(1.06);
+  }
+  .node-btn:hover::before, .node-btn:focus-visible::before{
+    background:var(--navy-deep);
+    box-shadow:0 0 0 3px rgba(227,185,104,0.35);
+  }
+  .node-btn:focus-visible{ outline:2px solid var(--brass-bright); outline-offset:3px; }
+
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+  @keyframes spin-reverse{ from{ transform:rotate(0deg);} to{ transform:rotate(-360deg); } }
+
+  .hint{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:10.5px;
+    letter-spacing:0.1em;
+    text-transform:uppercase;
+    color:var(--parchment-dim);
+    opacity:0.6;
+    margin-top:8px;
+  }
+
+  /* ---------------- MODAL ---------------- */
+  .modal-overlay{
+    position:fixed;
+    inset:0;
+    background:rgba(10,15,20,0.72);
+    backdrop-filter:blur(3px);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    z-index:10;
+    opacity:0;
+    pointer-events:none;
+    transition:opacity .2s ease;
+    padding:24px;
+  }
+  .modal-overlay.open{ opacity:1; pointer-events:auto; }
+
+  .modal{
+    width:100%;
+    max-width:420px;
+    background:linear-gradient(180deg, #182430 0%, #121B24 100%);
+    border:1px solid var(--ring);
+    border-radius:6px;
+    padding:32px 30px 28px;
+    position:relative;
+    transform:translateY(10px) scale(0.98);
+    transition:transform .22s ease;
+    box-shadow:0 30px 60px rgba(0,0,0,0.5);
+  }
+  .modal-overlay.open .modal{ transform:translateY(0) scale(1); }
+
+  .modal-close{
+    all:unset;
+    position:absolute;
+    top:16px; right:18px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    letter-spacing:0.1em;
+    color:var(--parchment-dim);
+    cursor:pointer;
+    padding:4px 8px;
+  }
+  .modal-close:hover, .modal-close:focus-visible{ color:var(--brass-bright); }
+  .modal-close:focus-visible{ outline:2px solid var(--brass-bright); outline-offset:2px; }
+
+  .modal-eyebrow{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:10px;
+    letter-spacing:0.2em;
+    text-transform:uppercase;
+    color:var(--brass);
+    margin-bottom:10px;
+  }
+  .modal h2{
+    font-family:'Cormorant Garamond', serif;
+    font-weight:600;
+    font-size:30px;
+    margin:0 0 12px;
+    color:var(--parchment);
+    text-align:left;
+  }
+  .modal p{
+    font-size:14px;
+    line-height:1.65;
+    color:var(--parchment-dim);
+    margin:0 0 22px;
+    text-align:left;
+  }
+  .modal-link{
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11.5px;
+    letter-spacing:0.08em;
+    text-transform:uppercase;
+    color:var(--navy-deep);
+    background:var(--brass);
+    text-decoration:none;
+    padding:10px 16px;
+    border-radius:3px;
+    transition:background .15s ease;
+  }
+  .modal-link:hover{ background:var(--brass-bright); }
+
+  footer{
+    margin-top:70px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:10.5px;
+    letter-spacing:0.08em;
+    color:var(--parchment-dim);
+    opacity:0.5;
+  }
+
+  @media (max-width:560px){
+    .orrery-wrap{ width:92vmin; height:92vmin; }
+    .node-btn{ padding:5px 9px; }
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    .orbit, .node-inner, .hub-glyph{ animation:none !important; }
+  }
+</style>
+</head>
+<body>
+
+<div class="page">
+  <div class="eyebrow">An orbit of collaborators</div>
+  <h1>Everyone I've<br><em>worked alongside</em></h1>
+  <p class="sub">A slow-turning record of the companies that shaped this path. Click any name to read more.</p>
+
+  <div class="orrery-wrap" id="orreryWrap">
+    <div class="dial-ring outer"></div>
+    <div class="dial-ring mid"></div>
+    <div class="dial-ring inner"></div>
+    <div class="ticks" id="ticks"></div>
+
+    <div class="hub">
+      <div class="hub-face">
+        <svg class="hub-glyph" viewBox="0 0 100 100">
+          <circle cx="50" cy="50" r="38"/>
+          <circle cx="50" cy="50" r="2.5" fill="#C7973A" stroke="none"/>
+          <path d="M50 12 L50 22 M50 78 L50 88 M12 50 L22 50 M78 50 L88 50"/>
+          <path d="M50 12 L53 20 L47 20 Z" fill="#C7973A" stroke="none"/>
+        </svg>
+        <div class="hub-label">Est.<br>2024</div>
+      </div>
+    </div>
+
+    <div class="orbit" id="orbit"></div>
+  </div>
+
+  <div class="hint">Click a name · drag not required, it turns on its own</div>
+
+  <footer>Orbit — a small interactive keepsake</footer>
+</div>
+
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <button class="modal-close" id="modalClose" aria-label="Close">CLOSE ✕</button>
+    <div class="modal-eyebrow" id="modalEyebrow">Company</div>
+    <h2 id="modalTitle">Name</h2>
+    <p id="modalDesc">Description</p>
+    <a class="modal-link" id="modalLink" href="#" target="_blank" rel="noopener">Visit site ↗</a>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ============================================================
+     EDIT THIS LIST — swap in your own companies.
+     name        : shown on the ring and in the modal title
+     tag         : short label, shown above the name in the modal
+                   (e.g. role, years, "Client", "Employer")
+     description : a sentence or two for the modal
+     url         : optional — omit or leave "" to hide the link button
+  ============================================================ */
+  var COMPANIES = [
+    { name:"Acme Health",     tag:"2022–2023",  description:"Where the first real project shipped, and the first real deadline was missed and survived.", url:"https://example.com" },
+    { name:"Northbridge Co.", tag:"Client",      description:"A short, intense engagement that ended up shaping how this whole approach to strategy works.", url:"https://example.com" },
+    { name:"Fieldstone",      tag:"2023",        description:"Three months, one impossible brief, and a launch that actually held together.", url:"" },
+    { name:"Halcyon Group",   tag:"Advisor",     description:"Office hours turned into a standing weekly call that never really stopped being useful.", url:"https://example.com" },
+    { name:"Ledger & Co.",    tag:"2021",        description:"The first place that said yes before there was much of a portfolio to show.", url:"https://example.com" },
+    { name:"Meridian Labs",   tag:"Collaborator",description:"Two teams, one shared spreadsheet, and somehow it all reconciled in the end.", url:"" },
+    { name:"Ashgrove",        tag:"2024",        description:"Still ongoing — the newest orbit, and the one with the most left to learn.", url:"https://example.com" }
+  ];
+
+  var RADIUS_PCT = 42; // distance of nodes from center, as % of wrap size
+  var ORBIT_DURATION = "70s";
+
+  var wrap = document.getElementById('orreryWrap');
+  var orbit = document.getElementById('orbit');
+  var ticksEl = document.getElementById('ticks');
+
+  wrap.style.setProperty('--orbit-duration', ORBIT_DURATION);
+
+  // build tick marks around the outer dial
+  var TICK_COUNT = 48;
+  for(var t=0; t<TICK_COUNT; t++){
+    var deg = (360/TICK_COUNT)*t;
+    var tick = document.createElement('div');
+    tick.className = 'tick' + (t % 6 === 0 ? ' major' : '');
+    tick.style.transform = 'translate(-50%,0) rotate('+deg+'deg)';
+    ticksEl.appendChild(tick);
+  }
+
+  // place company nodes evenly around the ring
+  COMPANIES.forEach(function(company, i){
+    var angle = (360 / COMPANIES.length) * i;
+
+    var node = document.createElement('div');
+    node.className = 'node';
+    node.style.transform = 'rotate('+angle+'deg) translateX('+RADIUS_PCT+'%) rotate('+(-angle)+'deg)';
+
+    var inner = document.createElement('div');
+    inner.className = 'node-inner';
+
+    var btn = document.createElement('button');
+    btn.className = 'node-btn';
+    btn.type = 'button';
+    btn.textContent = company.name;
+    btn.addEventListener('click', function(){ openModal(company); });
+
+    inner.appendChild(btn);
+    node.appendChild(inner);
+    orbit.appendChild(node);
+  });
+
+  // modal
+  var overlay = document.getElementById('modalOverlay');
+  var modalEyebrow = document.getElementById('modalEyebrow');
+  var modalTitle = document.getElementById('modalTitle');
+  var modalDesc = document.getElementById('modalDesc');
+  var modalLink = document.getElementById('modalLink');
+  var modalClose = document.getElementById('modalClose');
+  var lastFocused = null;
+
+  function openModal(company){
+    lastFocused = document.activeElement;
+    modalEyebrow.textContent = company.tag || 'Company';
+    modalTitle.textContent = company.name;
+    modalDesc.textContent = company.description || '';
+    if(company.url){
+      modalLink.href = company.url;
+      modalLink.style.display = 'inline-flex';
+    } else {
+      modalLink.style.display = 'none';
+    }
+    overlay.classList.add('open');
+    wrap.classList.add('paused');
+    modalClose.focus();
+    document.addEventListener('keydown', onKeydown);
+  }
+
+  function closeModal(){
+    overlay.classList.remove('open');
+    wrap.classList.remove('paused');
+    document.removeEventListener('keydown', onKeydown);
+    if(lastFocused) lastFocused.focus();
+  }
+
+  function onKeydown(e){
+    if(e.key === 'Escape') closeModal();
+  }
+
+  modalClose.addEventListener('click', closeModal);
+  overlay.addEventListener('click', function(e){
+    if(e.target === overlay) closeModal();
+  });
+
+  // pause rotation while any node is hovered/focused, for readability
+  orbit.addEventListener('mouseenter', function(){ wrap.classList.add('paused'); }, true);
+  orbit.addEventListener('mouseleave', function(){
+    if(!overlay.classList.contains('open')) wrap.classList.remove('paused');
+  }, true);
+
+})();
+</script>
+</body>
+</html>
